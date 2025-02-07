@@ -1,17 +1,15 @@
 import asyncio
 from playwright.async_api import async_playwright
-from typing import List
 
-
-async def get_all_comments(url: str) -> List[str]:
+async def get_all_comments_page_html(url: str) -> str:
     """
     Scrapes all comments from a JavaScript-heavy webpage using Playwright.
     
     :param url: The URL of the webpage.
-    :return: A list of extracted comments.
+    :return: The full HTML of the page after all comments have loaded.
     """
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False)  # Set headless=False for debugging
+        browser = await p.chromium.launch(headless=False)  # Set to True for production
         page = await browser.new_page()
         
         # Go to the page
@@ -30,20 +28,18 @@ async def get_all_comments(url: str) -> List[str]:
                 print(f"Error clicking button: {e}")
                 break  # If button not found, break the loop
 
-        # Extract all comments
-        comments_elements = await page.query_selector_all(".CommentText")  # Replace with actual comment class
-        comments = [await comment.inner_text() for comment in comments_elements]
+        # Once the button disappears, get the full page HTML
+        full_html = await page.content()
 
         await browser.close()
-        return comments
+        return full_html
 
 
 # Test the function
 url = "https://cafebazaar.ir/app/com.getsomeheadspace.android"
 
 # Run Playwright async function
-comments = asyncio.run(get_all_comments(url))
+page_html = asyncio.run(get_all_comments_page_html(url))
 
-# Print collected comments
-for idx, comment in enumerate(comments, start=1):
-    print(f"{idx}. {comment}")
+# Print or save the collected HTML
+print(page_html)  # Print only the first 1000 characters for preview

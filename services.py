@@ -1,6 +1,7 @@
 from utils import send_request, clean_text
 from bs4 import BeautifulSoup
 from typing import List, TypedDict, Optional
+from playwright.async_api import async_playwright
 
 
 class AppMetadata(TypedDict):
@@ -84,36 +85,65 @@ def get_app_links(url: str):
 # print(get_app_names(MAIN_DOMAIN+MENTAL_HEALTH_APP_ROUTE))    
     
     
-def get_comments_data(app_url: str):
-    response = send_request(app_url)
+def get_comments_data(page_html: str):
     try:
-        soup = BeautifulSoup(response.text, "lxml")
-        app_comments_divs = soup.find_all("div","AppComment")
-        for div in app_comments_divs:
-            username = div.find("div", class_="AppComment__username").text
-            app_comment_meta = div.find("div",class_="AppComment__meta")
-            app_comment_rating = app_comment_meta.find("div", class_="AppComment__rating")
-            rating_style = app_comment_rating.find("div",class_="rating__fill").get("style")
-            user_rating = int(rating_style.split(":")[1][:-2]) // 20
-            comment_date = app_comment_rating.find_next_sibling().text
-            user_comment = div.find("div",class_="AppComment__body").text.strip()
-            account_id = div.get("accountid")
-            
-            record = {}
-            record["username"] = username
-            record["account_id"] = account_id
-            record["rating"]= user_rating
-            record["comment"]= user_comment
-            record["comment_date"] = comment_date
-            
-            print(record)
+        soup = BeautifulSoup(page_html, "lxml")
+        app_comments_divs = soup.find_all("div", "AppComment")
+
+        comments_data = [
+            {
+                "username": div.find("div", class_="AppComment__username").text,
+                "account_id": div.get("accountid"),
+                "rating": int(div.find("div", class_="rating__fill").get("style").split(":")[1][:-2]) // 20,
+                "comment": div.find("div", class_="AppComment__body").text.strip(),
+                "comment_date": div.find("div", class_="AppComment__meta").find_next_sibling().text,
+            }
+            for div in app_comments_divs
+        ]
+
+        return comments_data
 
     except Exception as error:
         print(f"Error occurred: {error}")
         return None
+
     
     
+# # Test URL
+# URL = "https://cafebazaar.ir/app/com.getsomeheadspace.android"
+# get_comments_data(URL)
+
+
+
+async def get_all_comments_page_html(url: str) -> str:
+    """
+    Scrapes all comments from a JavaScript-heavy webpage using Playwright.
     
-# Test URL
-URL = "https://cafebazaar.ir/app/com.getsomeheadspace.android"
-get_comments_data(URL)
+    :param url: The URL of the webpage.
+    :return: The full HTML of the page after all comments have loaded.
+    """
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)  # Set to True for production
+        page = await browser.new_page()
+        
+        # Go to the page
+        await page.goto(url, timeout=60000)  # 60-second timeout
+
+        # Keep clicking "Load More Comments" until it disappears
+        while True:
+            try:
+                load_more_button = await page.query_selector("span:text('نظرات بیشتر')")
+                if load_more_button:
+                    await load_more_button.click()
+                    await page.wait_for_timeout(2000)  # Wait for new comments to load
+                else:
+                    break  # Button is gone, exit loop
+            except Exception as e:
+                print(f"Error clicking button: {e}")
+                break  # If button not found, break the loop
+
+        # Once the button disappears, get the full page HTML
+        full_html = await page.content()
+
+        await browser.close()
+        return full_html
