@@ -12,6 +12,14 @@ class AppMetadata(TypedDict):
     description_content: str
     app_name:str
     app_images: List[str]
+    
+    
+class CommentMetadata(TypedDict):
+    username: str
+    account_id : str
+    rating: int
+    comment: str
+    comment_date: str
 
 
 
@@ -47,10 +55,10 @@ def get_app_metadata(app_url: str) -> Optional[AppMetadata]:
         return None
 
 
-# Test URL
-URL = "https://cafebazaar.ir/app/com.getsomeheadspace.android"
+# # Test URL
+# URL = "https://cafebazaar.ir/app/com.getsomeheadspace.android"
 
-print(get_app_metadata(URL))
+# print(get_app_metadata(URL))
 
 
     
@@ -76,4 +84,36 @@ def get_app_links(url: str):
 # print(get_app_names(MAIN_DOMAIN+MENTAL_HEALTH_APP_ROUTE))    
     
     
+def get_comments_data(app_url: str):
+    response = send_request(app_url)
+    try:
+        soup = BeautifulSoup(response.text, "lxml")
+        app_comments_divs = soup.find_all("div","AppComment")
+        for div in app_comments_divs:
+            username = div.find("div", class_="AppComment__username").text
+            app_comment_meta = div.find("div",class_="AppComment__meta")
+            app_comment_rating = app_comment_meta.find("div", class_="AppComment__rating")
+            rating_style = app_comment_rating.find("div",class_="rating__fill").get("style")
+            user_rating = int(rating_style.split(":")[1][:-2]) // 20
+            comment_date = app_comment_rating.find_next_sibling().text
+            user_comment = div.find("div",class_="AppComment__body").text.strip()
+            account_id = div.get("accountid")
+            
+            record = {}
+            record["username"] = username
+            record["account_id"] = account_id
+            record["rating"]= user_rating
+            record["comment"]= user_comment
+            record["comment_date"] = comment_date
+            
+            print(record)
+
+    except Exception as error:
+        print(f"Error occurred: {error}")
+        return None
     
+    
+    
+# Test URL
+URL = "https://cafebazaar.ir/app/com.getsomeheadspace.android"
+get_comments_data(URL)
