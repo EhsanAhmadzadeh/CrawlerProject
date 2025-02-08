@@ -2,6 +2,12 @@ import requests
 from requests.exceptions import RequestException, HTTPError, Timeout, ConnectionError
 from typing import Dict, Optional, Union
 import unicodedata
+from config import AppConfig
+import logging
+import pandas as pd
+import os
+import traceback
+
 
 def send_request(
     url: str,
@@ -10,7 +16,7 @@ def send_request(
     data: Optional[Dict[str, Union[str, int]]] = None,
     headers: Optional[Dict[str, str]] = None,
     timeout: int = 10,
-    retries: int = 3
+    retries: int = 3,
 ) -> Dict[str, Union[int, str, Dict]]:
     """
     Sends an HTTP request with proper error handling and retry logic.
@@ -42,7 +48,7 @@ def send_request(
 
             # Raise an exception for HTTP error responses (4xx, 5xx)
             response.raise_for_status()
-        
+
             # Try parsing JSON response, otherwise return plain text
             return response
 
@@ -58,8 +64,6 @@ def send_request(
     return {"error": "Request failed after multiple attempts"}
 
 
-
-
 def clean_text(text: str) -> str:
     """
     Cleans unwanted Unicode characters and extra spaces from the text.
@@ -72,3 +76,23 @@ def clean_text(text: str) -> str:
 
     # Remove redundant spaces
     return " ".join(cleaned_text.split())
+
+
+def log_failed_task(url, error_type, error_message):
+    """Logs a failed task to CSV."""
+
+    error_data = pd.DataFrame(
+        [{"url": url, "error_type": error_type, "error_message": error_message}]
+    )
+
+    file_exists = os.path.exists(AppConfig.FAILED_TASKS_FILE)
+    error_data.to_csv(
+        AppConfig.FAILED_TASKS_FILE, mode="a", index=False, header=not file_exists
+    )
+
+    if AppConfig.SHOW_TRACEBACKS:
+        logging.error(
+            f"❌ {error_type} - {url}: {error_message}\n{traceback.format_exc()}"
+        )
+    else:
+        logging.error(f"❌ {error_type} - {url}: {error_message}")
