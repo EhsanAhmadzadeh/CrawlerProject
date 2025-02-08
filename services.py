@@ -94,34 +94,91 @@ def get_comments_data(page_html: str, app_id: int) -> List[CommentMetadata]:
         return []
 
 
+# async def get_all_comments_page_html(url: str) -> str:
+#     """Scrapes all comments from a JavaScript-heavy webpage using Playwright."""
+#     async with async_playwright() as p:
+#         browser = await p.chromium.launch(headless=True)  # Set to True for production
+#         page = await browser.new_page()
+        
+#         # Go to the page
+#         await page.goto(url, timeout=60000)  # 60-second timeout
+
+#         # Keep clicking "Load More Comments" until it disappears
+#         while True:
+#             try:
+                
+#                 # load_more_button = await page.query_selector("span:text('نظرات بیشتر')")
+#                 load_more_button = await page.query_selector("newbtn AppCommentsList__loadmore")
+#                 if load_more_button:
+#                     await load_more_button.click()
+#                     await page.wait_for_timeout(2000)  # Wait for new comments to load
+#                 else:
+#                     break  # Button is gone, exit loop
+#             except Exception as e:
+#                 print(f"Error clicking button: {e}")
+#                 break  # If button not found, break the loop
+
+#         # Once the button disappears, get the full page HTML
+#         full_html = await page.content()
+
+#         await browser.close()
+#         return full_html
+
+
+import logging
+import asyncio
 async def get_all_comments_page_html(url: str) -> str:
     """Scrapes all comments from a JavaScript-heavy webpage using Playwright."""
+    
+    logging.info(f"🔄 Opening {url} to scrape all comments...")
+
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)  # Set to True for production
         page = await browser.new_page()
         
-        # Go to the page
-        await page.goto(url, timeout=60000)  # 60-second timeout
+        try:
+            # Navigate to the page
+            await page.goto(url, timeout=60000)  
+            logging.info("✅ Page loaded successfully.")
 
-        # Keep clicking "Load More Comments" until it disappears
-        while True:
-            try:
-                load_more_button = await page.query_selector("span:text('نظرات بیشتر')")
-                if load_more_button:
-                    await load_more_button.click()
-                    await page.wait_for_timeout(2000)  # Wait for new comments to load
-                else:
-                    break  # Button is gone, exit loop
-            except Exception as e:
-                print(f"Error clicking button: {e}")
-                break  # If button not found, break the loop
+            # Keep clicking "Load More Comments" until it disappears
+            while True:
+                try:
+                    # Find the "Load More Comments" button
+                    load_more_button = await page.query_selector("button.newbtn.AppCommentsList__loadmore")
+                    
+                    if load_more_button:
+                        logging.info("🔄 Clicking 'Load More Comments' button...")
+                        await load_more_button.click()
+                        await page.wait_for_timeout(1000)  # Allow comments to load
 
-        # Once the button disappears, get the full page HTML
-        full_html = await page.content()
+                        # Scroll to bottom of the page to trigger further loading
+                        await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        await asyncio.sleep(1)  # Small delay for stability
+                    else:
+                        logging.info("✅ No more 'Load More' buttons found. Finished loading comments.")
+                        break  # Button is gone, exit loop
 
-        await browser.close()
+                except Exception as e:
+                    logging.warning(f"⚠️ Error clicking 'Load More' button: {e}")
+                    break  # If button is not found or another error occurs, exit loop
+
+            # Extract full page HTML after all comments have loaded
+            full_html = await page.content()
+
+            logging.info("📥 Successfully extracted page HTML.")
+
+        except Exception as e:
+            logging.error(f"❌ Failed to load comments from {url}: {e}")
+            full_html = ""
+
+        finally:
+            await browser.close()
+
         return full_html
-
+    
+    
+    
 
 def get_app_links(url: str):
     response = send_request(url)

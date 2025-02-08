@@ -46,7 +46,6 @@ async def process_app(full_url):
     logging.info(f"🔄 Scraping comments for {app_metadata['app_name']}...")
     page_html = await get_all_comments_page_html(full_url)
     comments = get_comments_data(page_html, app_metadata["app_id"])
-    logging.info(f"comments[0]['comment_date']: { comments[0]['comment_date']}")
     
     logging.info(f"💬 Fetched {len(comments)} comments for {app_metadata['app_name']}")
 
