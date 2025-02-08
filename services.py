@@ -2,33 +2,36 @@ from utils import send_request, clean_text
 from bs4 import BeautifulSoup
 from typing import List, TypedDict, Optional
 from playwright.async_api import async_playwright
+import uuid  # For generating unique IDs
 
-
+# Define structured interfaces
 class AppMetadata(TypedDict):
+    app_id: int
     installation_counts: str
     app_score: str
     app_category: str
     app_size: str
     app_last_update: str
     description_content: str
-    app_name:str
+    app_name: str
     app_images: List[str]
-    
+
     
 class CommentMetadata(TypedDict):
+    comment_id: int
     username: str
-    account_id : str
+    account_id: str
     rating: int
     comment: str
     comment_date: str
-
+    app_id: int  # Foreign Key linking comment to the app
 
 
 def get_app_metadata(app_url: str) -> Optional[AppMetadata]:
+    """Fetches app metadata and assigns a unique app_id."""
     response = send_request(app_url)
     try:
         soup = BeautifulSoup(response.text, "lxml")
-
 
         detail_page_header = soup.find("section", class_="DetailsPageHeader")
         app_name = detail_page_header.find("h1", class_="AppName").text
@@ -40,63 +43,46 @@ def get_app_metadata(app_url: str) -> Optional[AppMetadata]:
         description_content = clean_text(soup.find("div", class_="AppDescriptionContent").text)
                 
         carousel_elements = soup.find("div", class_="carousel__inner-content")
-        app_images = carousel_elements.find_all("source")
-        app_images = [e.get("data-lazy-srcset") for e in app_images]
+        app_images = [e.get("data-lazy-srcset") for e in carousel_elements.find_all("source")]
 
         keys = ("installation_counts", "app_score", "app_category", "app_size", "app_last_update")
 
-        app_metadata: AppMetadata = {key: info_cubes_elements[i] for i, key in enumerate(keys)}
-        app_metadata["app_name"] = app_name
-        app_metadata["description_content"] = description_content
-        app_metadata["app_images"] = app_images
+        # Assign a unique app ID
+        app_id = int(uuid.uuid4().int % (10**8))  # Generate an 8-digit unique int ID
+
+        app_metadata: AppMetadata = {
+            "app_id": app_id,
+            "app_name": app_name,
+            "description_content": description_content,
+            "installation_counts": info_cubes_elements[0],
+            "app_score": info_cubes_elements[1],
+            "app_category": info_cubes_elements[2],
+            "app_size": info_cubes_elements[3],
+            "app_last_update": info_cubes_elements[4],
+            "app_images": app_images
+        }
         return app_metadata
 
     except Exception as error:
-        print(f"Error occurred: {error}")
+        print(f"Error occurred while fetching app metadata: {error}")
         return None
 
 
-# # Test URL
-# URL = "https://cafebazaar.ir/app/com.getsomeheadspace.android"
-
-# print(get_app_metadata(URL))
-
-
-    
-def get_app_links(url: str):
-    response = send_request(url)
-    try:
-        soup = BeautifulSoup(response.text , "lxml")
-
-        titles = soup.find_all("a","SimpleAppItem SimpleAppItem--single")
-        app_links = [title.get("href") for title in titles]
-        
-        return app_links
-        
-    except Exception as error:
-        print(f"Error occurred: {error}")
-        return
-
-
-
-# MAIN_DOMAIN = "https://cafebazaar.ir" 
-# MENTAL_HEALTH_APP_ROUTE = "/lists/ml-mental-health-exercises"
-    
-# print(get_app_names(MAIN_DOMAIN+MENTAL_HEALTH_APP_ROUTE))    
-    
-    
-def get_comments_data(page_html: str):
+def get_comments_data(page_html: str, app_id: int) -> List[CommentMetadata]:
+    """Extracts all comments from the HTML and links them to an app_id."""
     try:
         soup = BeautifulSoup(page_html, "lxml")
         app_comments_divs = soup.find_all("div", "AppComment")
 
-        comments_data = [
+        comments_data: List[CommentMetadata] = [
             {
+                "comment_id": int(uuid.uuid4().int % (10**8)),  # Generate 8-digit unique comment ID
+                "app_id": app_id,  # Foreign key linking to app
                 "username": div.find("div", class_="AppComment__username").text,
                 "account_id": div.get("accountid"),
                 "rating": int(div.find("div", class_="rating__fill").get("style").split(":")[1][:-2]) // 20,
                 "comment": div.find("div", class_="AppComment__body").text.strip(),
-                "comment_date": div.find("div", class_="AppComment__meta").find_next_sibling().text,
+                "comment_date": div.find("div", class_="AppComment__rating").find_next_sibling().text,
             }
             for div in app_comments_divs
         ]
@@ -104,24 +90,12 @@ def get_comments_data(page_html: str):
         return comments_data
 
     except Exception as error:
-        print(f"Error occurred: {error}")
-        return None
-
-    
-    
-# # Test URL
-# URL = "https://cafebazaar.ir/app/com.getsomeheadspace.android"
-# get_comments_data(URL)
-
+        print(f"Error occurred while extracting comments: {error}")
+        return []
 
 
 async def get_all_comments_page_html(url: str) -> str:
-    """
-    Scrapes all comments from a JavaScript-heavy webpage using Playwright.
-    
-    :param url: The URL of the webpage.
-    :return: The full HTML of the page after all comments have loaded.
-    """
+    """Scrapes all comments from a JavaScript-heavy webpage using Playwright."""
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)  # Set to True for production
         page = await browser.new_page()
@@ -147,3 +121,18 @@ async def get_all_comments_page_html(url: str) -> str:
 
         await browser.close()
         return full_html
+
+
+def get_app_links(url: str):
+    response = send_request(url)
+    try:
+        soup = BeautifulSoup(response.text , "lxml")
+
+        titles = soup.find_all("a","SimpleAppItem SimpleAppItem--single")
+        app_links = [title.get("href") for title in titles]
+        
+        return app_links
+        
+    except Exception as error:
+        print(f"Error occurred: {error}")
+        return
