@@ -1,6 +1,6 @@
 import logging
 import uuid
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 from bs4 import BeautifulSoup
 from config import AppConfig
 from utils.http_client import async_send_request
@@ -8,23 +8,26 @@ from utils.common import clean_text
 import asyncio
 
 
-class AppMetadata(dict):
-    """
-    A dictionary-based container for App metadata.
-    Example keys:
-      app_id, app_name, installation_counts, app_score, app_category,
-      app_size, app_last_update, description_content, app_images
-    """
-    pass
+class AppMetadata(TypedDict):
+    app_id: int
+    installation_counts: str
+    app_score: str
+    app_category: str
+    app_size: str
+    app_last_update: str
+    description_content: str
+    app_name: str
+    app_images: List[str]
 
 
-class CommentMetadata(dict):
-    """
-    A dictionary-based container for comment metadata.
-    Example keys:
-      comment_id, username, account_id, rating, comment, comment_date, app_id
-    """
-    pass
+class CommentMetadata(TypedDict):
+    comment_id: int
+    username: str
+    account_id: str
+    rating: int
+    comment: str
+    comment_date: str
+    app_id: int
 
 
 async def get_app_links(url: str) -> List[str]:
