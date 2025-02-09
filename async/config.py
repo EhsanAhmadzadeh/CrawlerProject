@@ -20,7 +20,7 @@ class AppConfig:
 
     # Playwright Settings
     HEADLESS_MODE = True  # Set to False for debugging
-    LOG_MORE_COMMENTS_BUTTON_CLICKED = True
+    LOG_MORE_COMMENTS_BUTTON_CLICKED = False
     REFRESH_NO_COMMENTS_PAGE_TIMEOUT = 30_000  # in milliseconds
     REFRESH_ALL_COMMENTS_PAGE_TIMEOUT = 360   # in seconds
 

@@ -55,13 +55,12 @@ async def process_app(full_url: str):
 
     logging.info(f"💬 Fetched {len(comments)} comments for {app_metadata['app_name']}")
 
-    # 4) Write to Excel
+    # 4) Store data to Excel
     app_df = pd.DataFrame([app_metadata])
     comments_df = pd.DataFrame(comments)
     write_to_excel(app_df, comments_df)
 
     logging.info(f"📂 Data saved successfully for: {app_metadata['app_name']}")
-    logging.info("------------------------------------------------------------")
 
 
 async def main():

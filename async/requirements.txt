@@ -1,0 +1,6 @@
+httpx                  # Fast async HTTP requests
+beautifulsoup4         # Parsing HTML data
+lxml                   # Fast XML/HTML parsing engine for BeautifulSoup
+playwright             # Headless browser automation (for JavaScript-heavy pages)
+pandas                 # Data processing & exporting to Excel
+openpyxl               # Working with Excel files
